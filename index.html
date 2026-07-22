@@ -279,7 +279,7 @@ function loadLevel(idx){
   if(idx===0){player.weapons={pistol:true,shotgun:false,mg:false};player.ammo={pistol:Infinity,shotgun:0,mg:0};player.currentWeapon='pistol';player.hp=100;}
   if(idx===2){bossActive=true;startMusic('boss');}else startMusic('level');
 }
-function makeEnemy(type,x,y){const base={x,y,angle:0,state:'idle',animFrame:Math.random()*100|0,hitFlash:0,attackTimer:2+Math.random()*2,dead:false,deathTimer:0,strafeDir:1,strafeTimer:0,retreatTimer:0};switch(type){case'lizard':return{...base,type,hp:35,maxHp:35,speed:1.4,damage:10,attackRange:1.6,score:100};case'snake':return{...base,type,hp:18,maxHp:18,speed:2.8,damage:6,attackRange:1.3,score:75};case'jaguar':return{...base,type,hp:70,maxHp:70,speed:2.0,damage:18,attackRange:2.0,score:200};case'boss':return{...base,type,hp:600,maxHp:600,speed:.9,damage:22,attackRange:3.5,score:5000,phase:1,attackType:null,telegraph:0,summonTimer:0};}}
+function makeEnemy(type,x,y){const base={x,y,angle:0,state:'idle',animFrame:Math.random()*100|0,hitFlash:0,attackTimer:2+Math.random()*2,dead:false,deathTimer:0,strafeDir:1,strafeTimer:0,retreatTimer:0};switch(type){case'lizard':return{...base,type,hp:35,maxHp:35,speed:1.4,damage:10,attackRange:1.6,score:100};case'snake':return{...base,type,hp:18,maxHp:18,speed:2.8,damage:6,attackRange:1.3,score:75};case'jaguar':return{...base,type,hp:70,maxHp:70,speed:2.0,damage:18,attackRange:2.0,score:200};case'boss':return{...base,type,hp:600,maxHp:600,speed:.4,damage:22,attackRange:3.5,score:5000,phase:1,attackType:null,telegraph:0,summonTimer:0};}}
 function getTile(x,y){if(x<0||x>=mapW||y<0||y>=mapH)return 1;return map[y][x];}
 function isWall(x,y){const tx=Math.floor(x),ty=Math.floor(y);if(tx<0||tx>=mapW||ty<0||ty>=mapH)return true;const t=map[ty][tx];if(t===4){const door=doors.find(d=>d.x===tx&&d.y===ty);if(door&&door.open>0.5)return false;}return t>0;}
 function hasLOS(x1,y1,x2,y2){const dx=x2-x1,dy=y2-y1;const dist=Math.sqrt(dx*dx+dy*dy);if(dist>MAX_DEPTH)return false;const steps=Math.ceil(dist*4);for(let i=1;i<steps;i++){const t=i/steps;if(isWall(x1+dx*t,y1+dy*t))return false;}return true;}
@@ -330,7 +330,9 @@ function updatePlayer(dt){
   for(let i=items.length-1;i>=0;i--){const it=items[i];const d=Math.sqrt((it.x-player.x)**2+(it.y-player.y)**2);if(d<.5){if(it.type==='exit'&&currentLevel<2){loadLevel(currentLevel+1);return;}if(it.type==='health'){player.hp=Math.min(player.maxHp,player.hp+30);sfx('pickup');player.pickupFlash=1;items.splice(i,1);spawnParticles(it.x,it.y,'#0f0',12);}else if(it.type==='shotgun'){player.weapons.shotgun=true;player.ammo.shotgun+=16;player.currentWeapon='shotgun';sfx('weapon');player.pickupFlash=1;items.splice(i,1);spawnParticles(it.x,it.y,'#fa0',12);}else if(it.type==='mg'){player.weapons.mg=true;player.ammo.mg+=80;player.currentWeapon='mg';sfx('weapon');player.pickupFlash=1;items.splice(i,1);spawnParticles(it.x,it.y,'#0af',12);}}}
   if(screenShake>0)screenShake-=dt*3;
 }
-function fireWeapon(){const w=player.currentWeapon;switch(w){case'pistol':player.fireCooldown=.2;player.fireAnim=1;sfx('shoot');hitscan(28,2.5,0);break;case'shotgun':if(player.ammo.shotgun<=0){player.currentWeapon='pistol';return;}player.ammo.shotgun--;player.fireCooldown=.55;player.fireAnim=1;screenShake=.4;sfx('shotgun');for(let i=0;i<7;i++)hitscan(22,1.8,(i-3)*.07);break;case'mg':if(player.ammo.mg<=0){player.currentWeapon='pistol';return;}player.ammo.mg--;player.fireCooldown=.07;player.fireAnim=1;sfx('mg');hitscan(16,1.8,(Math.random()-.5)*.04);break;}}
+
+// ============ WEAPONS & HITSCAN ============
+function fireWeapon(){const w=player.currentWeapon;switch(w){case'pistol':player.fireCooldown=.2;player.fireAnim=1;sfx('shoot');hitscan(28,2.5,0);break;case'shotgun':if(player.ammo.shotgun<=0){player.currentWeapon='pistol';return;}player.ammo.shotgun--;player.fireCooldown=.55;player.fireAnim=1;screenShake=.4;sfx('shotgun');for(let i=0;i<7;i++)hitscan(22,1.8,(i-3)*.07);break;case'mg':if(player.ammo.mg<=0){player.currentWeapon='pistol';return;}player.ammo.mg--;player.fireCooldown=.07;player.fireAnim=1;sfx('mg');hitscan(18,3.5,(Math.random()-.5)*.04);break;}}
 function hitscan(damage,range,spread){const angle=player.angle+spread;const dx=Math.cos(angle),dy=Math.sin(angle);let closestDist=range,hitEnemy=null,hitPoint={x:player.x+dx*range,y:player.y+dy*range};for(const e of enemies){if(e.dead)continue;const edx=e.x-player.x,edy=e.y-player.y;const t=edx*dx+edy*dy;if(t<0||t>range)continue;const px2=player.x+dx*t,py2=player.y+dy*t;const distToEnemy=Math.sqrt((px2-e.x)**2+(py2-e.y)**2);const enemySize=e.type==='boss'?.9:.45;if(distToEnemy<enemySize&&t<closestDist){closestDist=t;hitEnemy=e;hitPoint={x:px2,y:py2};}}let wallDist=range;let stepX=player.x,stepY=player.y;for(let i=0;i<range*12;i++){stepX+=dx*.08;stepY+=dy*.08;if(isWall(stepX,stepY)){wallDist=Math.sqrt((stepX-player.x)**2+(stepY-player.y)**2);hitPoint={x:stepX,y:stepY};break;}}tracers.push({x1:player.x+Math.cos(player.angle)*.3,y1:player.y+Math.sin(player.angle)*.3,x2:hitPoint.x,y2:hitPoint.y,life:.06});if(hitEnemy&&closestDist<wallDist){const distFalloff=1-closestDist/(range*2);const dmg=Math.floor(damage*Math.max(.4,distFalloff));hitEnemy.hp-=dmg;hitEnemy.hitFlash=.25;hitEnemy.state='chase';if(hitEnemy.type!=='boss')hitEnemy.retreatTimer=.3;sfx('enemyhit');const bloodColor=hitEnemy.type==='snake'?'#9B5050':hitEnemy.type==='jaguar'?'#C08020':'#2a8a2a';spawnParticles(hitEnemy.x,hitEnemy.y,bloodColor,10);spawnParticles(hitEnemy.x,hitEnemy.y,'#600',5);const kbx=dx*.15,kby=dy*.15;if(!isWall(hitEnemy.x+kbx,hitEnemy.y))hitEnemy.x+=kbx;if(!isWall(hitEnemy.x,hitEnemy.y+kby))hitEnemy.y+=kby;if(hitEnemy.hp<=0)killEnemy(hitEnemy,dx,dy);}else{sfx('wallhit');spawnParticles(hitPoint.x,hitPoint.y,'#aaa',6);spawnParticles(hitPoint.x,hitPoint.y,'#666',4);decals.push({x:hitPoint.x,y:hitPoint.y,type:'floor',color:'rgba(80,70,60,.5)',life:5});}}
 function killEnemy(e,kdx,kdy){
   e.dead=true;e.deathTimer=0;killCount++;player.killCombo++;player.comboTimer=2;sfx('death');if(player.currentWeapon==='shotgun'||e.type==='boss')sfx('gib');
@@ -349,9 +351,102 @@ function killEnemy(e,kdx,kdy){
     }, 2500);
   }
 }
+
+// ============ ENEMIES & BOSS ============
 function updateEnemies(dt){for(const e of enemies){e.animFrame++;if(e.hitFlash>0)e.hitFlash-=dt*5;if(e.dead){e.deathTimer+=dt;continue;}if(e.type==='boss'){updateBoss(e,dt);continue;}const dx=player.x-e.x,dy=player.y-e.y;const dist=Math.sqrt(dx*dx+dy*dy);if(e.state==='idle'){if(dist<10&&hasLOS(e.x,e.y,player.x,player.y))e.state='chase';}if(e.retreatTimer>0){e.retreatTimer-=dt;const rx=-dx/dist,ry=-dy/dist;const moveX=rx*e.speed*1.5*dt,moveY=ry*e.speed*1.5*dt;if(!isWall(e.x+moveX,e.y))e.x+=moveX;if(!isWall(e.x,e.y+moveY))e.y+=moveY;}else if(e.state==='chase'){e.strafeTimer-=dt;if(e.strafeTimer<=0){e.strafeTimer=1+Math.random()*1.5;e.strafeDir*=-1;}if(dist>e.attackRange){const moveX=(dx/dist)*e.speed*dt;const moveY=(dy/dist)*e.speed*dt;if(e.type!=='lizard'){const perpX=-dy/dist*e.strafeDir*.5*dt*e.speed;const perpY=dx/dist*e.strafeDir*.5*dt*e.speed;if(!isWall(e.x+moveX+perpX,e.y))e.x+=moveX+perpX;if(!isWall(e.x,e.y+moveY+perpY))e.y+=moveY+perpY;}else{if(!isWall(e.x+moveX,e.y))e.x+=moveX;if(!isWall(e.x,e.y+moveY))e.y+=moveY;}}else{e.attackTimer-=dt;if(e.attackTimer<=0){e.attackTimer=e.type==='snake'?.6:e.type==='jaguar'?.8:1.2;if(hasLOS(e.x,e.y,player.x,player.y)){player.hp-=e.damage;player.hurtFlash=1;screenShake=Math.max(screenShake,.4);sfx('hurt');const ang=Math.atan2(dy,dx);damageDirections.push({angle:ang,life:1});spawnParticles(player.x+Math.cos(player.angle)*.5,player.y+Math.sin(player.angle)*.5,'#f00',6);}}}}if(player.hp<=0 && gameState==='playing'){gameState='dying';deathTimer=0;screenShake=.8;stopMusic();playFunnyTalk(2.5);sfx('gib');spawnParticles(player.x,player.y,'#f00',30);spawnParticles(player.x,player.y,'#600',20);}}}
-function updateBoss(boss,dt){const dx=player.x-boss.x,dy=player.y-boss.y;const dist=Math.sqrt(dx*dx+dy*dy);boss.phase=boss.hp>boss.maxHp*.66?1:boss.hp>boss.maxHp*.33?2:3;const phaseSpeed=[.9,1.3,1.8][boss.phase-1];const phaseAttackCD=[3,2.2,1.5][boss.phase-1];if(boss.telegraph>0){boss.telegraph-=dt;if(boss.telegraph<=0){executeBossAttack(boss);boss.attackTimer=phaseAttackCD;boss.attackType=null;}return;}boss.attackTimer-=dt;if(dist>3.5){const moveX=(dx/dist)*phaseSpeed*dt;const moveY=(dy/dist)*phaseSpeed*dt;if(!isWall(boss.x+moveX,boss.y))boss.x+=moveX;if(!isWall(boss.x,boss.y+moveY))boss.y+=moveY;}if(boss.attackTimer<=0&&dist<12){const attacks=boss.phase===1?['tongue','charge']:boss.phase===2?['tongue','charge','poison']:['tongue','charge','poison','summon'];boss.attackType=attacks[Math.floor(Math.random()*attacks.length)];boss.telegraph=.8;sfx('bossroar');}if(boss.phase===3){boss.summonTimer-=dt;if(boss.summonTimer<=0){boss.summonTimer=8;for(let i=0;i<2;i++){const ang=Math.random()*Math.PI*2;const sx=boss.x+Math.cos(ang)*2.5,sy=boss.y+Math.sin(ang)*2.5;if(!isWall(sx,sy))enemies.push(makeEnemy('lizard',sx,sy));}}}}
-function executeBossAttack(boss){const dx=player.x-boss.x,dy=player.y-boss.y;const ang=Math.atan2(dy,dx);switch(boss.attackType){case'tongue':for(let i=0;i<3;i++)setTimeout(()=>{if(!boss.dead)projectiles.push({x:boss.x,y:boss.y,dx:Math.cos(ang)*6,dy:Math.sin(ang)*6,damage:18,type:'tongue',life:2});},i*100);break;case'poison':for(let i=-3;i<=3;i++){const a=ang+i*.15;projectiles.push({x:boss.x,y:boss.y,dx:Math.cos(a)*3.5,dy:Math.sin(a)*3.5,damage:12,type:'poison',life:3});}break;case'charge':const chargeDist=6;const tx=boss.x+Math.cos(ang)*chargeDist;const ty=boss.y+Math.sin(ang)*chargeDist;const steps=20;for(let i=0;i<steps;i++){const t=i/steps;const cx=boss.x+(tx-boss.x)*t;const cy=boss.y+(ty-boss.y)*t;setTimeout(()=>{if(!isWall(cx,cy)){boss.x=cx;boss.y=cy;}spawnParticles(cx,cy,'#1a3a1a',3);if(Math.sqrt((cx-player.x)**2+(cy-player.y)**2)<1.2){player.hp-=28;player.hurtFlash=1;screenShake=.7;sfx('hurt');const a2=Math.atan2(player.y-cy,player.x-cx);damageDirections.push({angle:a2+Math.PI,life:1});}},i*20);}break;case'summon':for(let i=0;i<3;i++){const a=Math.random()*Math.PI*2;const sx=boss.x+Math.cos(a)*2.5,sy=boss.y+Math.sin(a)*2.5;if(!isWall(sx,sy))enemies.push(makeEnemy('lizard',sx,sy));}spawnParticles(boss.x,boss.y,'#0a0',20);break;}}
+
+function updateBoss(boss,dt){
+  const dx=player.x-boss.x,dy=player.y-boss.y;
+  const dist=Math.sqrt(dx*dx+dy*dy);
+  boss.phase=boss.hp>boss.maxHp*.66?1:boss.hp>boss.maxHp*.33?2:3;
+  // Boss mais lento em todas as fases
+  const phaseSpeed=[.5, 0.8, 1.2][boss.phase-1];
+  // Mais intervalo entre ataques para dar tempo de respirar
+  const phaseAttackCD=[4.5, 3.5, 2.5][boss.phase-1];
+  
+  if(boss.telegraph>0){
+    boss.telegraph-=dt;
+    if(boss.telegraph<=0){executeBossAttack(boss);boss.attackTimer=phaseAttackCD;boss.attackType=null;}
+    return;
+  }
+  
+  boss.attackTimer-=dt;
+  
+  if(dist>3.5){
+    const moveX=(dx/dist)*phaseSpeed*dt;
+    const moveY=(dy/dist)*phaseSpeed*dt;
+    if(!isWall(boss.x+moveX,boss.y))boss.x+=moveX;
+    if(!isWall(boss.x,boss.y+moveY))boss.y+=moveY;
+  }
+  
+  if(boss.attackTimer<=0&&dist<12){
+    const attacks=boss.phase===1?['tongue','charge']:boss.phase===2?['tongue','charge','poison']:['tongue','charge','poison','summon'];
+    boss.attackType=attacks[Math.floor(Math.random()*attacks.length)];
+    // Telegraph mais longo: 1.6s para desviar com facilidade
+    boss.telegraph=1.6; 
+    sfx('bossroar');
+  }
+  
+  if(boss.phase===3){
+    boss.summonTimer-=dt;
+    if(boss.summonTimer<=0){
+      boss.summonTimer=10; // Invoca menos frequentemente
+      for(let i=0;i<2;i++){
+        const ang=Math.random()*Math.PI*2;
+        const sx=boss.x+Math.cos(ang)*2.5,sy=boss.y+Math.sin(ang)*2.5;
+        if(!isWall(sx,sy))enemies.push(makeEnemy('lizard',sx,sy));
+      }
+    }
+  }
+}
+
+function executeBossAttack(boss){
+  const dx=player.x-boss.x,dy=player.y-boss.y;
+  const ang=Math.atan2(dy,dx);
+  switch(boss.attackType){
+    case'tongue':
+      // Projéteis mais lentos
+      for(let i=0;i<3;i++)setTimeout(()=>{if(!boss.dead)projectiles.push({x:boss.x,y:boss.y,dx:Math.cos(ang)*4,dy:Math.sin(ang)*4,damage:18,type:'tongue',life:3});},i*150);
+      break;
+    case'poison':
+      // Leque mais aberto e projéteis mais lentos
+      for(let i=-3;i<=3;i++){
+        const a=ang+i*.2;
+        projectiles.push({x:boss.x,y:boss.y,dx:Math.cos(a)*2.5,dy:Math.sin(a)*2.5,damage:12,type:'poison',life:4});
+      }
+      break;
+    case'charge':
+      const chargeDist=6;
+      const tx=boss.x+Math.cos(ang)*chargeDist;
+      const ty=boss.y+Math.sin(ang)*chargeDist;
+      const steps=25; // Mais passos = animação mais suave e coreografada
+      for(let i=0;i<steps;i++){
+        const t=i/steps;
+        const cx=boss.x+(tx-boss.x)*t;
+        const cy=boss.y+(ty-boss.y)*t;
+        // Investida mais lenta: i*30ms
+        setTimeout(()=>{
+          if(!isWall(cx,cy)){boss.x=cx;boss.y=cy;}
+          spawnParticles(cx,cy,'#1a3a1a',3);
+          if(Math.sqrt((cx-player.x)**2+(cy-player.y)**2)<1.2){
+            player.hp-=28;player.hurtFlash=1;screenShake=.7;sfx('hurt');
+            const a2=Math.atan2(player.y-cy,player.x-cx);
+            damageDirections.push({angle:a2+Math.PI,life:1});
+          }
+        },i*30);
+      }
+      break;
+    case'summon':
+      for(let i=0;i<3;i++){
+        const a=Math.random()*Math.PI*2;
+        const sx=boss.x+Math.cos(a)*2.5,sy=boss.y+Math.sin(a)*2.5;
+        if(!isWall(sx,sy))enemies.push(makeEnemy('lizard',sx,sy));
+      }
+      spawnParticles(boss.x,boss.y,'#0a0',20);
+      break;
+  }
+}
+
 function updateProjectiles(dt){for(let i=projectiles.length-1;i>=0;i--){const p=projectiles[i];p.x+=p.dx*dt;p.y+=p.dy*dt;p.life-=dt;if(Math.random()<.3)spawnParticles(p.x,p.y,p.type==='poison'?'#6f0':'#f0a',2);if(p.life<=0||isWall(p.x,p.y)){spawnParticles(p.x,p.y,p.type==='poison'?'#6f0':'#f0a',6);projectiles.splice(i,1);continue;}const d=Math.sqrt((p.x-player.x)**2+(p.y-player.y)**2);if(d<.4 && gameState==='playing'){player.hp-=p.damage;player.hurtFlash=1;screenShake=.3;sfx('hurt');const ang=Math.atan2(p.dy,p.dx);damageDirections.push({angle:ang,life:1});spawnParticles(player.x,player.y,p.type==='poison'?'#6f0':'#f0a',8);projectiles.splice(i,1);}}}
 function spawnParticles(x,y,color,count){for(let i=0;i<count;i++)particles.push({x,y,dx:(Math.random()-.5)*4,dy:(Math.random()-.5)*4,life:.4+Math.random()*.6,maxLife:1,color,size:1+Math.random()*2});}
 function updateParticles(dt){for(let i=particles.length-1;i>=0;i--){const p=particles[i];p.x+=p.dx*dt;p.y+=p.dy*dt;p.dx*=.92;p.dy*=.92;p.life-=dt;if(p.life<=0)particles.splice(i,1);}for(let i=tracers.length-1;i>=0;i--){tracers[i].life-=dt*15;if(tracers[i].life<=0)tracers.splice(i,1);}for(let i=decals.length-1;i>=0;i--){decals[i].life-=dt*.1;if(decals[i].life<=0)decals.splice(i,1);}}
