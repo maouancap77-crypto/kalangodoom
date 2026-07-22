@@ -304,6 +304,19 @@ function getEnemySprite(e){const key=e.type+'_'+Math.floor(e.animFrame)+'_'+(e.d
 function getItemSprite(type){return makeSprite(32,32,(cx,cw,ch)=>drawPickup(cx,cw,ch,type));}
 function getProjectileSprite(type){return makeSprite(16,16,(cx,w,h)=>{cx.clearRect(0,0,w,h);cx.shadowBlur=6;cx.shadowColor=type==='poison'?'#6f0':type==='tongue'?'#f0a':'#f80';cx.fillStyle=type==='poison'?'#6f0':type==='tongue'?'#f0a':'#f80';cx.beginPath();cx.arc(w/2,h/2,5,0,Math.PI*2);cx.fill();cx.shadowBlur=0;cx.fillStyle='#fff';cx.beginPath();cx.arc(w/2,h/2,2,0,Math.PI*2);cx.fill();});}
 
+function checkPlayerDeath() {
+  if(player.hp <= 0 && gameState === 'playing') {
+    gameState = 'dying';
+    deathTimer = 0;
+    screenShake = .8;
+    stopMusic();
+    playFunnyTalk(2.5);
+    sfx('gib');
+    spawnParticles(player.x, player.y, '#f00', 30);
+    spawnParticles(player.x, player.y, '#600', 20);
+  }
+}
+
 function updatePlayer(dt){
   gameTime+=dt;updateDoors(dt);
   const speed=(keys['shift']?4.5:2.8)*dt;const rotSpeed=2.2*dt;
@@ -331,7 +344,6 @@ function updatePlayer(dt){
   if(screenShake>0)screenShake-=dt*3;
 }
 
-// ============ WEAPONS & HITSCAN ============
 function fireWeapon(){const w=player.currentWeapon;switch(w){case'pistol':player.fireCooldown=.2;player.fireAnim=1;sfx('shoot');hitscan(28,2.5,0);break;case'shotgun':if(player.ammo.shotgun<=0){player.currentWeapon='pistol';return;}player.ammo.shotgun--;player.fireCooldown=.55;player.fireAnim=1;screenShake=.4;sfx('shotgun');for(let i=0;i<7;i++)hitscan(22,1.8,(i-3)*.07);break;case'mg':if(player.ammo.mg<=0){player.currentWeapon='pistol';return;}player.ammo.mg--;player.fireCooldown=.07;player.fireAnim=1;sfx('mg');hitscan(18,3.5,(Math.random()-.5)*.04);break;}}
 function hitscan(damage,range,spread){const angle=player.angle+spread;const dx=Math.cos(angle),dy=Math.sin(angle);let closestDist=range,hitEnemy=null,hitPoint={x:player.x+dx*range,y:player.y+dy*range};for(const e of enemies){if(e.dead)continue;const edx=e.x-player.x,edy=e.y-player.y;const t=edx*dx+edy*dy;if(t<0||t>range)continue;const px2=player.x+dx*t,py2=player.y+dy*t;const distToEnemy=Math.sqrt((px2-e.x)**2+(py2-e.y)**2);const enemySize=e.type==='boss'?.9:.45;if(distToEnemy<enemySize&&t<closestDist){closestDist=t;hitEnemy=e;hitPoint={x:px2,y:py2};}}let wallDist=range;let stepX=player.x,stepY=player.y;for(let i=0;i<range*12;i++){stepX+=dx*.08;stepY+=dy*.08;if(isWall(stepX,stepY)){wallDist=Math.sqrt((stepX-player.x)**2+(stepY-player.y)**2);hitPoint={x:stepX,y:stepY};break;}}tracers.push({x1:player.x+Math.cos(player.angle)*.3,y1:player.y+Math.sin(player.angle)*.3,x2:hitPoint.x,y2:hitPoint.y,life:.06});if(hitEnemy&&closestDist<wallDist){const distFalloff=1-closestDist/(range*2);const dmg=Math.floor(damage*Math.max(.4,distFalloff));hitEnemy.hp-=dmg;hitEnemy.hitFlash=.25;hitEnemy.state='chase';if(hitEnemy.type!=='boss')hitEnemy.retreatTimer=.3;sfx('enemyhit');const bloodColor=hitEnemy.type==='snake'?'#9B5050':hitEnemy.type==='jaguar'?'#C08020':'#2a8a2a';spawnParticles(hitEnemy.x,hitEnemy.y,bloodColor,10);spawnParticles(hitEnemy.x,hitEnemy.y,'#600',5);const kbx=dx*.15,kby=dy*.15;if(!isWall(hitEnemy.x+kbx,hitEnemy.y))hitEnemy.x+=kbx;if(!isWall(hitEnemy.x,hitEnemy.y+kby))hitEnemy.y+=kby;if(hitEnemy.hp<=0)killEnemy(hitEnemy,dx,dy);}else{sfx('wallhit');spawnParticles(hitPoint.x,hitPoint.y,'#aaa',6);spawnParticles(hitPoint.x,hitPoint.y,'#666',4);decals.push({x:hitPoint.x,y:hitPoint.y,type:'floor',color:'rgba(80,70,60,.5)',life:5});}}
 function killEnemy(e,kdx,kdy){
@@ -352,16 +364,13 @@ function killEnemy(e,kdx,kdy){
   }
 }
 
-// ============ ENEMIES & BOSS ============
-function updateEnemies(dt){for(const e of enemies){e.animFrame++;if(e.hitFlash>0)e.hitFlash-=dt*5;if(e.dead){e.deathTimer+=dt;continue;}if(e.type==='boss'){updateBoss(e,dt);continue;}const dx=player.x-e.x,dy=player.y-e.y;const dist=Math.sqrt(dx*dx+dy*dy);if(e.state==='idle'){if(dist<10&&hasLOS(e.x,e.y,player.x,player.y))e.state='chase';}if(e.retreatTimer>0){e.retreatTimer-=dt;const rx=-dx/dist,ry=-dy/dist;const moveX=rx*e.speed*1.5*dt,moveY=ry*e.speed*1.5*dt;if(!isWall(e.x+moveX,e.y))e.x+=moveX;if(!isWall(e.x,e.y+moveY))e.y+=moveY;}else if(e.state==='chase'){e.strafeTimer-=dt;if(e.strafeTimer<=0){e.strafeTimer=1+Math.random()*1.5;e.strafeDir*=-1;}if(dist>e.attackRange){const moveX=(dx/dist)*e.speed*dt;const moveY=(dy/dist)*e.speed*dt;if(e.type!=='lizard'){const perpX=-dy/dist*e.strafeDir*.5*dt*e.speed;const perpY=dx/dist*e.strafeDir*.5*dt*e.speed;if(!isWall(e.x+moveX+perpX,e.y))e.x+=moveX+perpX;if(!isWall(e.x,e.y+moveY+perpY))e.y+=moveY+perpY;}else{if(!isWall(e.x+moveX,e.y))e.x+=moveX;if(!isWall(e.x,e.y+moveY))e.y+=moveY;}}else{e.attackTimer-=dt;if(e.attackTimer<=0){e.attackTimer=e.type==='snake'?.6:e.type==='jaguar'?.8:1.2;if(hasLOS(e.x,e.y,player.x,player.y)){player.hp-=e.damage;player.hurtFlash=1;screenShake=Math.max(screenShake,.4);sfx('hurt');const ang=Math.atan2(dy,dx);damageDirections.push({angle:ang,life:1});spawnParticles(player.x+Math.cos(player.angle)*.5,player.y+Math.sin(player.angle)*.5,'#f00',6);}}}}if(player.hp<=0 && gameState==='playing'){gameState='dying';deathTimer=0;screenShake=.8;stopMusic();playFunnyTalk(2.5);sfx('gib');spawnParticles(player.x,player.y,'#f00',30);spawnParticles(player.x,player.y,'#600',20);}}}
+function updateEnemies(dt){for(const e of enemies){e.animFrame++;if(e.hitFlash>0)e.hitFlash-=dt*5;if(e.dead){e.deathTimer+=dt;continue;}if(e.type==='boss'){updateBoss(e,dt);continue;}const dx=player.x-e.x,dy=player.y-e.y;const dist=Math.sqrt(dx*dx+dy*dy);if(e.state==='idle'){if(dist<10&&hasLOS(e.x,e.y,player.x,player.y))e.state='chase';}if(e.retreatTimer>0){e.retreatTimer-=dt;const rx=-dx/dist,ry=-dy/dist;const moveX=rx*e.speed*1.5*dt,moveY=ry*e.speed*1.5*dt;if(!isWall(e.x+moveX,e.y))e.x+=moveX;if(!isWall(e.x,e.y+moveY))e.y+=moveY;}else if(e.state==='chase'){e.strafeTimer-=dt;if(e.strafeTimer<=0){e.strafeTimer=1+Math.random()*1.5;e.strafeDir*=-1;}if(dist>e.attackRange){const moveX=(dx/dist)*e.speed*dt;const moveY=(dy/dist)*e.speed*dt;if(e.type!=='lizard'){const perpX=-dy/dist*e.strafeDir*.5*dt*e.speed;const perpY=dx/dist*e.strafeDir*.5*dt*e.speed;if(!isWall(e.x+moveX+perpX,e.y))e.x+=moveX+perpX;if(!isWall(e.x,e.y+moveY+perpY))e.y+=moveY+perpY;}else{if(!isWall(e.x+moveX,e.y))e.x+=moveX;if(!isWall(e.x,e.y+moveY))e.y+=moveY;}}else{e.attackTimer-=dt;if(e.attackTimer<=0){e.attackTimer=e.type==='snake'?.6:e.type==='jaguar'?.8:1.2;if(hasLOS(e.x,e.y,player.x,player.y)){player.hp-=e.damage;player.hurtFlash=1;screenShake=Math.max(screenShake,.4);sfx('hurt');const ang=Math.atan2(dy,dx);damageDirections.push({angle:ang,life:1});spawnParticles(player.x+Math.cos(player.angle)*.5,player.y+Math.sin(player.angle)*.5,'#f00',6);checkPlayerDeath();}}}}}}
 
 function updateBoss(boss,dt){
   const dx=player.x-boss.x,dy=player.y-boss.y;
   const dist=Math.sqrt(dx*dx+dy*dy);
   boss.phase=boss.hp>boss.maxHp*.66?1:boss.hp>boss.maxHp*.33?2:3;
-  // Boss mais lento em todas as fases
   const phaseSpeed=[.5, 0.8, 1.2][boss.phase-1];
-  // Mais intervalo entre ataques para dar tempo de respirar
   const phaseAttackCD=[4.5, 3.5, 2.5][boss.phase-1];
   
   if(boss.telegraph>0){
@@ -382,7 +391,6 @@ function updateBoss(boss,dt){
   if(boss.attackTimer<=0&&dist<12){
     const attacks=boss.phase===1?['tongue','charge']:boss.phase===2?['tongue','charge','poison']:['tongue','charge','poison','summon'];
     boss.attackType=attacks[Math.floor(Math.random()*attacks.length)];
-    // Telegraph mais longo: 1.6s para desviar com facilidade
     boss.telegraph=1.6; 
     sfx('bossroar');
   }
@@ -390,7 +398,7 @@ function updateBoss(boss,dt){
   if(boss.phase===3){
     boss.summonTimer-=dt;
     if(boss.summonTimer<=0){
-      boss.summonTimer=10; // Invoca menos frequentemente
+      boss.summonTimer=10;
       for(let i=0;i<2;i++){
         const ang=Math.random()*Math.PI*2;
         const sx=boss.x+Math.cos(ang)*2.5,sy=boss.y+Math.sin(ang)*2.5;
@@ -405,11 +413,9 @@ function executeBossAttack(boss){
   const ang=Math.atan2(dy,dx);
   switch(boss.attackType){
     case'tongue':
-      // Projéteis mais lentos
       for(let i=0;i<3;i++)setTimeout(()=>{if(!boss.dead)projectiles.push({x:boss.x,y:boss.y,dx:Math.cos(ang)*4,dy:Math.sin(ang)*4,damage:18,type:'tongue',life:3});},i*150);
       break;
     case'poison':
-      // Leque mais aberto e projéteis mais lentos
       for(let i=-3;i<=3;i++){
         const a=ang+i*.2;
         projectiles.push({x:boss.x,y:boss.y,dx:Math.cos(a)*2.5,dy:Math.sin(a)*2.5,damage:12,type:'poison',life:4});
@@ -419,19 +425,23 @@ function executeBossAttack(boss){
       const chargeDist=6;
       const tx=boss.x+Math.cos(ang)*chargeDist;
       const ty=boss.y+Math.sin(ang)*chargeDist;
-      const steps=25; // Mais passos = animação mais suave e coreografada
+      const steps=25;
       for(let i=0;i<steps;i++){
         const t=i/steps;
         const cx=boss.x+(tx-boss.x)*t;
         const cy=boss.y+(ty-boss.y)*t;
-        // Investida mais lenta: i*30ms
         setTimeout(()=>{
-          if(!isWall(cx,cy)){boss.x=cx;boss.y=cy;}
-          spawnParticles(cx,cy,'#1a3a1a',3);
-          if(Math.sqrt((cx-player.x)**2+(cy-player.y)**2)<1.2){
-            player.hp-=28;player.hurtFlash=1;screenShake=.7;sfx('hurt');
-            const a2=Math.atan2(player.y-cy,player.x-cx);
-            damageDirections.push({angle:a2+Math.PI,life:1});
+          // Correção: Só causa dano se o jogo estiver rodando e o boss estiver vivo
+          if(!boss.dead && gameState === 'playing'){
+            if(!isWall(cx,cy)){boss.x=cx;boss.y=cy;}
+            spawnParticles(cx,cy,'#1a3a1a',3);
+            if(Math.sqrt((cx-player.x)**2+(cy-player.y)**2)<1.2){
+              player.hp-=28;player.hurtFlash=1;screenShake=.7;sfx('hurt');
+              const a2=Math.atan2(player.y-cy,player.x-cx);
+              damageDirections.push({angle:a2+Math.PI,life:1});
+              // Verifica a morte imediatamente após o dano
+              checkPlayerDeath();
+            }
           }
         },i*30);
       }
@@ -447,7 +457,7 @@ function executeBossAttack(boss){
   }
 }
 
-function updateProjectiles(dt){for(let i=projectiles.length-1;i>=0;i--){const p=projectiles[i];p.x+=p.dx*dt;p.y+=p.dy*dt;p.life-=dt;if(Math.random()<.3)spawnParticles(p.x,p.y,p.type==='poison'?'#6f0':'#f0a',2);if(p.life<=0||isWall(p.x,p.y)){spawnParticles(p.x,p.y,p.type==='poison'?'#6f0':'#f0a',6);projectiles.splice(i,1);continue;}const d=Math.sqrt((p.x-player.x)**2+(p.y-player.y)**2);if(d<.4 && gameState==='playing'){player.hp-=p.damage;player.hurtFlash=1;screenShake=.3;sfx('hurt');const ang=Math.atan2(p.dy,p.dx);damageDirections.push({angle:ang,life:1});spawnParticles(player.x,player.y,p.type==='poison'?'#6f0':'#f0a',8);projectiles.splice(i,1);}}}
+function updateProjectiles(dt){for(let i=projectiles.length-1;i>=0;i--){const p=projectiles[i];p.x+=p.dx*dt;p.y+=p.dy*dt;p.life-=dt;if(Math.random()<.3)spawnParticles(p.x,p.y,p.type==='poison'?'#6f0':'#f0a',2);if(p.life<=0||isWall(p.x,p.y)){spawnParticles(p.x,p.y,p.type==='poison'?'#6f0':'#f0a',6);projectiles.splice(i,1);continue;}const d=Math.sqrt((p.x-player.x)**2+(p.y-player.y)**2);if(d<.4 && gameState==='playing'){player.hp-=p.damage;player.hurtFlash=1;screenShake=.3;sfx('hurt');const ang=Math.atan2(p.dy,p.dx);damageDirections.push({angle:ang,life:1});spawnParticles(player.x,player.y,p.type==='poison'?'#6f0':'#f0a',8);projectiles.splice(i,1);checkPlayerDeath();}}}
 function spawnParticles(x,y,color,count){for(let i=0;i<count;i++)particles.push({x,y,dx:(Math.random()-.5)*4,dy:(Math.random()-.5)*4,life:.4+Math.random()*.6,maxLife:1,color,size:1+Math.random()*2});}
 function updateParticles(dt){for(let i=particles.length-1;i>=0;i--){const p=particles[i];p.x+=p.dx*dt;p.y+=p.dy*dt;p.dx*=.92;p.dy*=.92;p.life-=dt;if(p.life<=0)particles.splice(i,1);}for(let i=tracers.length-1;i>=0;i--){tracers[i].life-=dt*15;if(tracers[i].life<=0)tracers.splice(i,1);}for(let i=decals.length-1;i>=0;i--){decals[i].life-=dt*.1;if(decals[i].life<=0)decals.splice(i,1);}}
 
@@ -482,7 +492,6 @@ function renderHUD(){
 }
 function drawMinimap(){const ms=4,mw=mapW*ms,mh=mapH*ms;const mx=DW-mw-12,my=55;ctx.fillStyle='rgba(0,0,0,.6)';ctx.fillRect(mx-4,my-4,mw+8,mh+8);ctx.strokeStyle='#440';ctx.lineWidth=1;ctx.strokeRect(mx-4,my-4,mw+8,mh+8);for(let y=0;y<mapH;y++)for(let x=0;x<mapW;x++){const t=map[y][x];if(t>0){ctx.fillStyle=t===4?'#660':'#430';ctx.fillRect(mx+x*ms,my+y*ms,ms,ms);}}for(const it of items){ctx.fillStyle=it.type==='exit'?'#0f0':it.type==='health'?'#f00':it.type==='shotgun'?'#fa0':'#0af';ctx.fillRect(mx+it.x*ms-1,my+it.y*ms-1,3,3);}for(const e of enemies){if(e.dead)continue;ctx.fillStyle=e.type==='boss'?'#f0f':'#f44';const s=e.type==='boss'?4:2;ctx.fillRect(mx+e.x*ms-s/2,my+e.y*ms-s/2,s,s);}ctx.fillStyle='#ff0';ctx.fillRect(mx+player.x*ms-2,my+player.y*ms-2,4,4);ctx.strokeStyle='rgba(255,255,0,.3)';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(mx+player.x*ms,my+player.y*ms);ctx.lineTo(mx+(player.x+Math.cos(player.angle-HALF_FOV)*3)*ms,my+(player.y+Math.sin(player.angle-HALF_FOV)*3)*ms);ctx.moveTo(mx+player.x*ms,my+player.y*ms);ctx.lineTo(mx+(player.x+Math.cos(player.angle+HALF_FOV)*3)*ms,my+(player.y+Math.sin(player.angle+HALF_FOV)*3)*ms);ctx.stroke();}
 
-// ============ PAUSE MENU ============
 function togglePause(){if(gameState==='playing'){gameState='paused';if(musicScheduler){clearTimeout(musicScheduler);musicScheduler=null;}}else if(gameState==='paused'){gameState='playing';startMusic(currentLevel===2?'boss':'level');}}
 
 function renderPauseMenu(){
@@ -511,6 +520,9 @@ function renderMenu(){
 }
 
 function renderDyingScreen() {
+  // Fade out da tela vermelha
+  player.hurtFlash = Math.max(0, player.hurtFlash - 0.02);
+  
   const alpha = Math.min(1, deathTimer * 0.8);
   ctx.fillStyle = `rgba(50, 0, 0, ${alpha * 0.7})`;
   ctx.fillRect(0, 0, DW, DH);
