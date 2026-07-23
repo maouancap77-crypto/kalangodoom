@@ -18,7 +18,7 @@ body{display:flex;justify-content:center;align-items:center}
 <div id="wrap">
 <canvas id="cv"></canvas>
 </div>
-<div id="hint">W/S Mover · A/D Virar · Q/E Deslizar · Mouse Mirar · Clique Atirar · 1 2 3 Armas · Shift Correr · ESC Pausar</div>
+<div id="hint">WASD Mover · Mouse Mirar · Clique Atirar · 1 2 3 Armas · Shift Correr · ESC Pausar</div>
 <script>
 "use strict";
 const RW=320,RH=200,DW=960,DH=600;
@@ -227,13 +227,18 @@ function updatePlayer(dt){
   if(player.decatestoTimer>0)player.decatestoTimer-=dt;
   const runKey=keys['shift']||touchCtrl.runId!==-1;
   const speed=(runKey?4.5:2.8)*dt;const rotSpeed=2.2*dt;
-  if(keys['arrowleft']||keys['a']||keys['auto_left'])player.angle-=rotSpeed;
-  if(keys['arrowright']||keys['d']||keys['auto_right'])player.angle+=rotSpeed;
+  
+  // Rotação pelo teclado (Setas direcionais para quem não tem mouse)
+  if(keys['arrowleft'])player.angle-=rotSpeed;
+  if(keys['arrowright'])player.angle+=rotSpeed;
+  
   let mx=0,my=0;
+  // Controle FPS Moderno (WASD)
   if(keys['w']||keys['arrowup']){mx+=Math.cos(player.angle)*speed;my+=Math.sin(player.angle)*speed;}
   if(keys['s']||keys['arrowdown']){mx-=Math.cos(player.angle)*speed;my-=Math.sin(player.angle)*speed;}
-  if(keys['q']){mx+=Math.cos(player.angle-Math.PI/2)*speed;my+=Math.sin(player.angle-Math.PI/2)*speed;}
-  if(keys['e']){mx+=Math.cos(player.angle+Math.PI/2)*speed;my+=Math.sin(player.angle+Math.PI/2)*speed;}
+  if(keys['a']){mx+=Math.cos(player.angle-Math.PI/2)*speed;my+=Math.sin(player.angle-Math.PI/2)*speed;}
+  if(keys['d']){mx+=Math.cos(player.angle+Math.PI/2)*speed;my+=Math.sin(player.angle+Math.PI/2)*speed;}
+  
   if(touchCtrl.move.active){const jx=touchCtrl.move.dx,jy=touchCtrl.move.dy;const jmag=Math.sqrt(jx*jx+jy*jy);if(jmag>5){const nx=jx/jmag,ny=jy/jmag;const jSpeed=speed*Math.min(1,jmag/40);mx+=Math.cos(player.angle)*-ny*jSpeed;my+=Math.sin(player.angle)*-ny*jSpeed;mx+=Math.cos(player.angle+Math.PI/2)*nx*jSpeed;my+=Math.sin(player.angle+Math.PI/2)*nx*jSpeed;}}
   const moving=(mx!==0||my!==0);if(moving)player.moveBob+=dt*(runKey?12:8);
   const nx=player.x+mx;if(!isWall(nx+Math.sign(mx)*.15,player.y))player.x=nx;
@@ -289,7 +294,14 @@ function updateEnemies(dt){
     e.animFrame++;if(e.hitFlash>0)e.hitFlash-=dt*5;if(e.dead){e.deathTimer+=dt;continue;}if(e.type==='boss'){updateBoss(e,dt);continue;}
     const dx=player.x-e.x,dy=player.y-e.y;const dist=Math.sqrt(dx*dx+dy*dy);
     if(e.state==='idle'){if(dist<10&&hasLOS(e.x,e.y,player.x,player.y))e.state='chase';}
-    if(e.retreatTimer>0){e.retreatTimer-=dt;const rx=-dx/dist,ry=-dy/dist;const moveX=rx*e.speed*1.5*dt,moveY=ry*e.speed*1.5*dt;if(!isWall(e.x+moveX,e.y))e.x+=moveX;if(!isWall(e.x,e.y+moveY))e.y+=moveY;}
+    
+    if(e.retreatTimer>0){
+      e.retreatTimer-=dt;const rx=-dx/dist,ry=-dy/dist;
+      const moveX=rx*e.speed*1.5*dt,moveY=ry*e.speed*1.5*dt;
+      // Colisão deslizante (X e Y separados)
+      const nx=e.x+moveX;if(!isWall(nx+Math.sign(moveX)*0.2,e.y))e.x=nx;
+      const ny=e.y+moveY;if(!isWall(e.x,ny+Math.sign(moveY)*0.2))e.y=ny;
+    }
     else if(e.state==='chase'){
       if(e.shootRange&&dist>e.attackRange&&dist<e.shootRange&&hasLOS(e.x,e.y,player.x,player.y)){
         e.shootTimer-=dt;
@@ -298,8 +310,11 @@ function updateEnemies(dt){
       else if(dist>e.attackRange){
         e.strafeTimer-=dt;if(e.strafeTimer<=0){e.strafeTimer=1+Math.random()*1.5;e.strafeDir*=-1;}
         const moveX=(dx/dist)*e.speed*dt;const moveY=(dy/dist)*e.speed*dt;
-        if(e.type!=='lizard'){const perpX=-dy/dist*e.strafeDir*.5*dt*e.speed;const perpY=dx/dist*e.strafeDir*.5*dt*e.speed;if(!isWall(e.x+moveX+perpX,e.y))e.x+=moveX+perpX;if(!isWall(e.x,e.y+moveY+perpY))e.y+=moveY+perpY;}
-        else{if(!isWall(e.x+moveX,e.y))e.x+=moveX;if(!isWall(e.x,e.y+moveY))e.y+=moveY;}
+        let totalX=moveX,totalY=moveY;
+        if(e.type!=='lizard'){totalX+=-dy/dist*e.strafeDir*.5*dt*e.speed;totalY+=dx/dist*e.strafeDir*.5*dt*e.speed;}
+        // Colisão deslizante para não travar na parede
+        const nx=e.x+totalX;if(!isWall(nx+Math.sign(totalX)*0.2,e.y))e.x=nx;
+        const ny=e.y+totalY;if(!isWall(e.x,ny+Math.sign(totalY)*0.2))e.y=ny;
       } else {
         e.attackTimer-=dt;
         if(e.attackTimer<=0){
@@ -318,8 +333,44 @@ function updateEnemies(dt){
   }
 }
 
-function updateBoss(boss,dt){const dx=player.x-boss.x,dy=player.y-boss.y;const dist=Math.sqrt(dx*dx+dy*dy);boss.phase=boss.hp>boss.maxHp*.66?1:boss.hp>boss.maxHp*.33?2:3;const phaseSpeed=[.5,0.8,1.2][boss.phase-1];const phaseAttackCD=[4.5,3.5,2.5][boss.phase-1];if(boss.telegraph>0){boss.telegraph-=dt;if(boss.telegraph<=0){executeBossAttack(boss);boss.attackTimer=phaseAttackCD;boss.attackType=null;}return;}boss.attackTimer-=dt;if(dist>3.5){const moveX=(dx/dist)*phaseSpeed*dt;const moveY=(dy/dist)*phaseSpeed*dt;if(!isWall(boss.x+moveX,boss.y))boss.x+=moveX;if(!isWall(boss.x,boss.y+moveY))boss.y+=moveY;}if(boss.attackTimer<=0&&dist<12){const attacks=boss.phase===1?['tongue','charge']:boss.phase===2?['tongue','charge','poison']:['tongue','charge','poison','summon'];boss.attackType=attacks[Math.floor(Math.random()*attacks.length)];boss.telegraph=1.6;sfx('bossroar');}if(boss.phase===3){boss.summonTimer-=dt;if(boss.summonTimer<=0){boss.summonTimer=10;for(let i=0;i<2;i++){const ang=Math.random()*Math.PI*2;const sx=boss.x+Math.cos(ang)*2.5,sy=boss.y+Math.sin(ang)*2.5;if(!isWall(sx,sy))enemies.push(makeEnemy('lizard',sx,sy));}}}}
-function executeBossAttack(boss){const dx=player.x-boss.x,dy=player.y-boss.y;const ang=Math.atan2(dy,dx);switch(boss.attackType){case'tongue':for(let i=0;i<3;i++)setTimeout(()=>{if(!boss.dead)projectiles.push({x:boss.x,y:boss.y,dx:Math.cos(ang)*4,dy:Math.sin(ang)*4,damage:18,type:'tongue',life:3});},i*150);break;case'poison':for(let i=-3;i<=3;i++){const a=ang+i*.2;projectiles.push({x:boss.x,y:boss.y,dx:Math.cos(a)*2.5,dy:Math.sin(a)*2.5,damage:12,type:'poison',life:4});}break;case'charge':const chargeDist=6;const tx=boss.x+Math.cos(ang)*chargeDist;const ty=boss.y+Math.sin(ang)*chargeDist;const steps=25;for(let i=0;i<steps;i++){const t=i/steps;const cx=boss.x+(tx-boss.x)*t;const cy=boss.y+(ty-boss.y)*t;setTimeout(()=>{if(!boss.dead&&gameState==='playing'){if(!isWall(cx,cy)){boss.x=cx;boss.y=cy;}spawnParticles(cx,cy,'#1a3a1a',3);if(Math.sqrt((cx-player.x)**2+(cy-player.y)**2)<1.2){if(player.decatestoTimer<=0){player.hp-=28;player.hurtFlash=1;screenShake=.7;sfx('hurt');const a2=Math.atan2(player.y-cy,player.x-cx);damageDirections.push({angle:a2+Math.PI,life:1});checkPlayerDeath();}}}},i*30);}break;case'summon':for(let i=0;i<3;i++){const a=Math.random()*Math.PI*2;const sx=boss.x+Math.cos(a)*2.5,sy=boss.y+Math.sin(a)*2.5;if(!isWall(sx,sy))enemies.push(makeEnemy('lizard',sx,sy));}spawnParticles(boss.x,boss.y,'#0a0',20);break;}}
+function updateBoss(boss,dt){
+  const dx=player.x-boss.x,dy=player.y-boss.y;const dist=Math.sqrt(dx*dx+dy*dy);
+  boss.phase=boss.hp>boss.maxHp*.66?1:boss.hp>boss.maxHp*.33?2:3;
+  const phaseSpeed=[.5,0.8,1.2][boss.phase-1];const phaseAttackCD=[4.5,3.5,2.5][boss.phase-1];
+  if(boss.telegraph>0){boss.telegraph-=dt;if(boss.telegraph<=0){executeBossAttack(boss);boss.attackTimer=phaseAttackCD;boss.attackType=null;}return;}
+  boss.attackTimer-=dt;
+  if(dist>3.5){
+    const moveX=(dx/dist)*phaseSpeed*dt;const moveY=(dy/dist)*phaseSpeed*dt;
+    // Colisão deslizante do Boss (buffer maior por ser grande)
+    const nx=boss.x+moveX;if(!isWall(nx+Math.sign(moveX)*0.3,boss.y))boss.x=nx;
+    const ny=boss.y+moveY;if(!isWall(boss.x,ny+Math.sign(moveY)*0.3))boss.y=ny;
+  }
+  if(boss.attackTimer<=0&&dist<12){const attacks=boss.phase===1?['tongue','charge']:boss.phase===2?['tongue','charge','poison']:['tongue','charge','poison','summon'];boss.attackType=attacks[Math.floor(Math.random()*attacks.length)];boss.telegraph=1.6;sfx('bossroar');}
+  if(boss.phase===3){boss.summonTimer-=dt;if(boss.summonTimer<=0){boss.summonTimer=10;for(let i=0;i<2;i++){const ang=Math.random()*Math.PI*2;const sx=boss.x+Math.cos(ang)*2.5,sy=boss.y+Math.sin(ang)*2.5;if(!isWall(sx,sy))enemies.push(makeEnemy('lizard',sx,sy));}}}
+}
+function executeBossAttack(boss){
+  const dx=player.x-boss.x,dy=player.y-boss.y;const ang=Math.atan2(dy,dx);
+  switch(boss.attackType){
+    case'tongue':for(let i=0;i<3;i++)setTimeout(()=>{if(!boss.dead)projectiles.push({x:boss.x,y:boss.y,dx:Math.cos(ang)*4,dy:Math.sin(ang)*4,damage:18,type:'tongue',life:3});},i*150);break;
+    case'poison':for(let i=-3;i<=3;i++){const a=ang+i*.2;projectiles.push({x:boss.x,y:boss.y,dx:Math.cos(a)*2.5,dy:Math.sin(a)*2.5,damage:12,type:'poison',life:4});}break;
+    case'charge':
+      const chargeDist=6;const tx=boss.x+Math.cos(ang)*chargeDist;const ty=boss.y+Math.sin(ang)*chargeDist;const steps=25;
+      for(let i=0;i<steps;i++){
+        const t=i/steps;const cx=boss.x+(tx-boss.x)*t;const cy=boss.y+(ty-boss.y)*t;
+        setTimeout(()=>{
+          if(!boss.dead&&gameState==='playing'){
+            if(!isWall(cx,cy)){boss.x=cx;boss.y=cy;}
+            spawnParticles(cx,cy,'#1a3a1a',3);
+            if(Math.sqrt((cx-player.x)**2+(cy-player.y)**2)<1.2){
+              if(player.decatestoTimer<=0){player.hp-=28;player.hurtFlash=1;screenShake=.7;sfx('hurt');const a2=Math.atan2(player.y-cy,player.x-cx);damageDirections.push({angle:a2+Math.PI,life:1});checkPlayerDeath();}
+            }
+          }
+        },i*30);
+      }
+      break;
+    case'summon':for(let i=0;i<3;i++){const a=Math.random()*Math.PI*2;const sx=boss.x+Math.cos(a)*2.5,sy=boss.y+Math.sin(a)*2.5;if(!isWall(sx,sy))enemies.push(makeEnemy('lizard',sx,sy));}spawnParticles(boss.x,boss.y,'#0a0',20);break;
+  }
+}
 function updateProjectiles(dt){for(let i=projectiles.length-1;i>=0;i--){const p=projectiles[i];p.x+=p.dx*dt;p.y+=p.dy*dt;p.life-=dt;if(Math.random()<.3)spawnParticles(p.x,p.y,p.type==='poison'?'#6f0':'#f0a',2);if(p.life<=0||isWall(p.x,p.y)){spawnParticles(p.x,p.y,p.type==='poison'?'#6f0':'#f0a',6);projectiles.splice(i,1);continue;}const d=Math.sqrt((p.x-player.x)**2+(p.y-player.y)**2);if(d<.4&&gameState==='playing'){if(player.decatestoTimer<=0){player.hp-=p.damage;player.hurtFlash=1;screenShake=.3;sfx('hurt');const ang=Math.atan2(p.dy,p.dx);damageDirections.push({angle:ang,life:1});spawnParticles(player.x,player.y,p.type==='poison'?'#6f0':'#f0a',8);checkPlayerDeath();}projectiles.splice(i,1);}}}
 function spawnParticles(x,y,color,count){for(let i=0;i<count;i++)particles.push({x,y,dx:(Math.random()-.5)*4,dy:(Math.random()-.5)*4,life:.4+Math.random()*.6,maxLife:1,color,size:1+Math.random()*2});}
 function updateParticles(dt){for(let i=particles.length-1;i>=0;i--){const p=particles[i];p.x+=p.dx*dt;p.y+=p.dy*dt;if(p.isGib){p.dx*=.9;p.dy*=.9;}else if(p.isCasing){p.dx*=.8;p.dy*=.8;}else{p.dx*=.92;p.dy*=.92;}p.life-=dt;if(p.life<=0)particles.splice(i,1);}for(let i=tracers.length-1;i>=0;i--){tracers[i].life-=dt*15;if(tracers[i].life<=0)tracers.splice(i,1);}for(let i=decals.length-1;i>=0;i--){decals[i].life-=dt*.1;if(decals[i].life<=0)decals.splice(i,1);}}
@@ -361,18 +412,72 @@ function drawMinimap(){const ms=4,mw=mapW*ms,mh=mapH*ms;const mx=DW-mw-12,my=55;
 
 function togglePause(){if(gameState==='playing'){gameState='paused';if(musicScheduler){clearTimeout(musicScheduler);musicScheduler=null;}}else if(gameState==='paused'){gameState='playing';startMusic(currentLevel===2?'boss':'level');}}
 function renderPauseMenu(){ctx.fillStyle='rgba(10,5,5,.85)';ctx.fillRect(0,0,DW,DH);ctx.textAlign='center';ctx.font='70px "Metal Mania",serif';ctx.fillStyle='#fa0';ctx.shadowColor='#f00';ctx.shadowBlur=15;ctx.fillText('PAUSADO',DW/2,DH/2-140);ctx.shadowBlur=0;pauseButtons=[];function drawBtn(btn){btn.hover=(mouse.x>=btn.x&&mouse.x<=btn.x+btn.w&&mouse.y>=btn.y&&mouse.y<=btn.y+btn.h);ctx.fillStyle=btn.hover?'rgba(60,20,20,.95)':'rgba(30,10,10,.9)';ctx.fillRect(btn.x,btn.y,btn.w,btn.h);ctx.strokeStyle=btn.hover?'#fa0':'#600';ctx.lineWidth=2;ctx.strokeRect(btn.x,btn.y,btn.w,btn.h);ctx.fillStyle=btn.hover?'#fff':'#ccc';ctx.font='22px "VT323",monospace';ctx.textBaseline='middle';ctx.fillText(btn.text,btn.x+btn.w/2,btn.y+btn.h/2);pauseButtons.push(btn);}ctx.textBaseline='alphabetic';ctx.textAlign='left';const volM={x:DW/2-100,y:DH/2-80,w:200,h:20,isVol:'music'};ctx.fillStyle='#aaa';ctx.font='16px "VT323",monospace';ctx.fillText('VOLUME DA MÚSICA',DW/2-100,DH/2-85);ctx.fillStyle='#220';ctx.fillRect(volM.x,volM.y,volM.w,volM.h);ctx.fillStyle=audioSettings.musicMuted?'#400':'#0a0';ctx.fillRect(volM.x,volM.y,volM.w*(audioSettings.musicVolume/.6),volM.h);ctx.strokeStyle='#444';ctx.strokeRect(volM.x,volM.y,volM.w,volM.h);pauseButtons.push(volM);const volS={x:DW/2-100,y:DH/2-30,w:200,h:20,isVol:'sfx'};ctx.fillStyle='#aaa';ctx.fillText('VOLUME DOS EFEITOS',DW/2-100,DH/2-35);ctx.fillStyle='#220';ctx.fillRect(volS.x,volS.y,volS.w,volS.h);ctx.fillStyle=audioSettings.sfxMuted?'#400':'#aa0';ctx.fillRect(volS.x,volS.y,volS.w*(audioSettings.sfxVolume/.8),volS.h);ctx.strokeStyle='#444';ctx.strokeRect(volS.x,volS.y,volS.w,volS.h);pauseButtons.push(volS);drawBtn({x:DW/2-100,y:DH/2,w:200,h:35,text:`Música: ${audioSettings.musicMuted?'DESLIGADA':'LIGADA'}`,action:()=>{audioSettings.musicMuted=!audioSettings.musicMuted;applyAudioSettings();}});drawBtn({x:DW/2-100,y:DH/2+45,w:200,h:35,text:`Efeitos: ${audioSettings.sfxMuted?'DESLIGADOS':'LIGADOS'}`,action:()=>{audioSettings.sfxMuted=!audioSettings.sfxMuted;applyAudioSettings();if(!audioSettings.sfxMuted)sfx('shoot');}});drawBtn({x:DW/2-100,y:DH/2+100,w:200,h:40,text:'VOLTAR AO JOGO (ESC)',action:togglePause});drawBtn({x:DW/2-100,y:DH/2+150,w:200,h:40,text:'SAIR PARA O MENU',action:()=>{gameState='menu';stopMusic();stopComicMusic();}});ctx.textAlign='left';ctx.textBaseline='alphabetic';}
-function renderMenu(){ctx.fillStyle='#000';ctx.fillRect(0,0,DW,DH);const t=Date.now()*.001;ctx.save();for(let i=0;i<80;i++){const x=(Math.sin(t+i)*.5+.5)*DW;const y=(Math.cos(t*.7+i*1.3)*.5+.5)*DH;ctx.fillStyle=`rgba(${120+Math.sin(i)*60},${30},${20},${.08+Math.sin(t+i)*.04})`;ctx.fillRect(x,y,3,3);}ctx.restore();ctx.font='80px "Metal Mania",serif';ctx.fillStyle='#400';ctx.fillText('REPTILIAN',DW/2-200,DH/2-60);ctx.fillStyle='#f00';ctx.shadowColor='#f00';ctx.shadowBlur=25;ctx.fillText('REPTILIAN',DW/2-203,DH/2-63);ctx.shadowBlur=0;ctx.font='100px "Metal Mania",serif';ctx.fillStyle='#300';ctx.fillText('DOOM',DW/2-90,DH/2+30);ctx.fillStyle='#f40';ctx.shadowColor='#f40';ctx.shadowBlur=30;ctx.fillText('DOOM',DW/2-93,DH/2+27);ctx.shadowBlur=0;ctx.font='18px "VT323",monospace';ctx.fillStyle='#888';ctx.fillText('☠ 3 FASES · 4 INIMIGOS · 3 ARMAS · 1 CHEFE ☠',DW/2-200,DH/2+70);if(Math.sin(t*4)>.0){ctx.font='28px "Metal Mania",serif';ctx.fillStyle='#fa0';ctx.shadowColor='#fa0';ctx.shadowBlur=10;ctx.fillText('▶ CLIQUE PARA INICIAR ◀',DW/2-170,DH/2+120);ctx.shadowBlur=0;}ctx.font='13px "VT323",monospace';ctx.fillStyle='#444';ctx.fillText(isMobile?'Joystick Mover · Arrastar Mirar · 🔥 Atirar · ⇩ Correr':'W/S Mover · A/D Virar · Q/E Deslizar · Mouse Mirar · 1/2/3 Armas · Shift Correr · ESC Pausar',DW/2-300,DH-30);}
+function renderMenu(){ctx.fillStyle='#000';ctx.fillRect(0,0,DW,DH);const t=Date.now()*.001;ctx.save();for(let i=0;i<80;i++){const x=(Math.sin(t+i)*.5+.5)*DW;const y=(Math.cos(t*.7+i*1.3)*.5+.5)*DH;ctx.fillStyle=`rgba(${120+Math.sin(i)*60},${30},${20},${.08+Math.sin(t+i)*.04})`;ctx.fillRect(x,y,3,3);}ctx.restore();ctx.font='80px "Metal Mania",serif';ctx.fillStyle='#400';ctx.fillText('REPTILIAN',DW/2-200,DH/2-60);ctx.fillStyle='#f00';ctx.shadowColor='#f00';ctx.shadowBlur=25;ctx.fillText('REPTILIAN',DW/2-203,DH/2-63);ctx.shadowBlur=0;ctx.font='100px "Metal Mania",serif';ctx.fillStyle='#300';ctx.fillText('DOOM',DW/2-90,DH/2+30);ctx.fillStyle='#f40';ctx.shadowColor='#f40';ctx.shadowBlur=30;ctx.fillText('DOOM',DW/2-93,DH/2+27);ctx.shadowBlur=0;ctx.font='18px "VT323",monospace';ctx.fillStyle='#888';ctx.fillText('☠ 3 FASES · 4 INIMIGOS · 3 ARMAS · 1 CHEFE ☠',DW/2-200,DH/2+70);if(Math.sin(t*4)>.0){ctx.font='28px "Metal Mania",serif';ctx.fillStyle='#fa0';ctx.shadowColor='#fa0';ctx.shadowBlur=10;ctx.fillText('▶ CLIQUE PARA INICIAR ◀',DW/2-170,DH/2+120);ctx.shadowBlur=0;}ctx.font='13px "VT323",monospace';ctx.fillStyle='#444';ctx.fillText(isMobile?'Joystick Mover · Arrastar Mirar · 🔥 Atirar · ⇩ Correr':'WASD Mover · Mouse Mirar · Clique Atirar · 1 2 3 Armas · Shift Correr · ESC Pausar',DW/2-300,DH-30);}
 function renderDyingScreen(){player.hurtFlash=Math.max(0,player.hurtFlash-0.02);const alpha=Math.min(1,deathTimer*0.8);ctx.fillStyle=`rgba(50,0,0,${alpha*0.7})`;ctx.fillRect(0,0,DW,DH);ctx.textAlign='center';ctx.font='40px "Metal Mania",serif';ctx.fillStyle=`rgba(255,255,255,${alpha})`;ctx.shadowColor='#f00';ctx.shadowBlur=15;ctx.fillText("Você está sendo brutalmente",DW/2,DH/2-60);ctx.fillText("molestado pelas oncinhas do renan,",DW/2,DH/2);ctx.fillText("e pelo lagartoso escamoso.",DW/2,DH/2+60);ctx.shadowBlur=0;ctx.textAlign='left';}
 function renderGameOver(){ctx.fillStyle='rgba(20,0,0,.88)';ctx.fillRect(0,0,DW,DH);ctx.font='80px "Metal Mania",serif';ctx.fillStyle='#300';ctx.fillText('VOCÊ MORREU',DW/2-210,DH/2);ctx.fillStyle='#f00';ctx.shadowColor='#f00';ctx.shadowBlur=20;ctx.fillText('VOCÊ MORREU',DW/2-213,DH/2-3);ctx.shadowBlur=0;ctx.font='22px "VT323",monospace';ctx.fillStyle='#888';ctx.fillText(`☠ Abates: ${killCount}`,DW/2-70,DH/2+50);if(Math.sin(Date.now()*.004)>0){ctx.font='24px "Metal Mania",serif';ctx.fillStyle='#fa0';ctx.fillText('CLIQUE PARA TENTAR DE NOVO',DW/2-190,DH/2+100);}}
 function renderVictory(){const flash=Math.sin(Date.now()*10)>0?'rgba(20,0,20,.88)':'rgba(0,10,0,.88)';ctx.fillStyle=flash;ctx.fillRect(0,0,DW,DH);const t=Date.now()*.001;ctx.save();for(let i=0;i<100;i++){const x=Math.random()*DW,y=(Math.random()*DH+t*100)%DH;ctx.fillStyle=`rgba(255,${150+Math.random()*100},0,${.4+Math.sin(t+i)*.2})`;ctx.fillRect(x,y,4,4);}ctx.restore();ctx.textAlign='center';if(victoryTime<5.5){ctx.font='24px "VT323",monospace';ctx.fillStyle='#fff';ctx.fillText('meus parabens!',DW/2,DH/2-120);ctx.fillText('Você derrotou o Lagarto safado que enganou eva',DW/2,DH/2-80);ctx.fillText('e é o culpado por termos de trabalhar hoje,',DW/2,DH/2-40);ctx.fillText('se você perdesse provavelmente ia ser brutalmente',DW/2,DH/2);ctx.fillText('sodomizado, quem sabe...',DW/2,DH/2+40);}else{ctx.font='28px "VT323",monospace';ctx.fillStyle='#fff';ctx.fillText('Não, não volte atrás, só para perder para ele:',DW/2,DH/2-40);ctx.font='60px "Metal Mania",serif';ctx.fillStyle='#f0f';ctx.shadowColor='#f0f';ctx.shadowBlur=20;ctx.fillText('Pederasta!',DW/2,DH/2+40);ctx.shadowBlur=0;}if(victoryTime>9&&Math.sin(t*4)>0){ctx.font='20px "VT323",monospace';ctx.fillStyle='#aaa';ctx.fillText('CLIQUE PARA JOGAR DE NOVO',DW/2,DH-50);}ctx.textAlign='left';}
 
-const keys={};const mouse={x:0,y:0,down:false};let lastClientX=-1;let dragVol=null;
+const keys={};const mouse={x:0,y:0,down:false,locked:false};let lastClientX=-1;let dragVol=null;
+
 window.addEventListener('keydown',e=>{keys[e.key.toLowerCase()]=true;if(e.key==='Enter'&&gameState==='menu')startGame();if(e.key==='Enter'&&gameState==='gameover')restartGame();if(e.key==='Enter'&&gameState==='victory')restartGame();if((e.key==='Escape'||e.key==='p'||e.key==='P')&&(gameState==='playing'||gameState==='paused'))togglePause();});
 window.addEventListener('keyup',e=>{keys[e.key.toLowerCase()]=false;});
-cv.addEventListener('click',e=>{initAudio();if(AC&&AC.state==='suspended')AC.resume();if(gameState==='menu')startGame();else if(gameState==='gameover'||gameState==='victory')restartGame();else if(gameState==='paused'){const rect=cv.getBoundingClientRect();const mx=(e.clientX-rect.left)*(DW/rect.width);const my=(e.clientY-rect.top)*(DH/rect.height);for(const btn of pauseButtons){if(mx>=btn.x&&mx<=btn.x+btn.w&&my>=btn.y&&my<=btn.y+btn.h){if(btn.action)btn.action();break;}}}});
-document.addEventListener('mousemove',e=>{const rect=cv.getBoundingClientRect();mouse.x=(e.clientX-rect.left)*(DW/rect.width);mouse.y=(e.clientY-rect.top)*(DH/rect.height);if(gameState==='playing'){const w=rect.width;if(e.clientX<rect.left+20){keys['auto_left']=true;keys['auto_right']=false;}else if(e.clientX>rect.right-20){keys['auto_right']=true;keys['auto_left']=false;}else{keys['auto_left']=false;keys['auto_right']=false;if(e.movementX)player.angle+=e.movementX*.003;else if(lastClientX>=0)player.angle+=(e.clientX-lastClientX)*.003;lastClientX=e.clientX;}}if(gameState==='paused'&&dragVol&&mouse.down){const v=dragVol==='music'?'musicVolume':'sfxVolume';const max=dragVol==='music'?.6:.8;audioSettings[v]=Math.max(0,Math.min(max,(mouse.x-(DW/2-100))/200*max));if(audioSettings[v]>0){if(dragVol==='music')audioSettings.musicMuted=false;else audioSettings.sfxMuted=false;}applyAudioSettings();}});
+
+// Entrada do Mouse (PC) - Moderno com Pointer Lock e Fallback
+cv.addEventListener('click',e=>{
+  initAudio();if(AC&&AC.state==='suspended')AC.resume();
+  if(gameState==='menu')startGame();
+  else if(gameState==='gameover'||gameState==='victory')restartGame();
+  else if(gameState==='paused'){
+    const rect=cv.getBoundingClientRect();const mx=(e.clientX-rect.left)*(DW/rect.width);const my=(e.clientY-rect.top)*(DH/rect.height);
+    for(const btn of pauseButtons){if(mx>=btn.x&&mx<=btn.x+btn.w&&my>=btn.y&&my<=btn.y+btn.h){if(btn.action)btn.action();break;}}
+  } else if(gameState==='playing'&&!mouse.locked){
+    // Tenta ativar o Pointer Lock
+    try { const pl = cv.requestPointerLock(); if(pl && pl.catch) pl.catch(()=>console.log("Pointer Lock bloqueado, use arrasto.")); } catch(err){}
+  }
+});
+
+document.addEventListener('pointerlockchange',()=>{
+  mouse.locked = (document.pointerLockElement === cv);
+});
+
+document.addEventListener('mousemove',e=>{
+  const rect=cv.getBoundingClientRect();
+  mouse.x=(e.clientX-rect.left)*(DW/rect.width);
+  mouse.y=(e.clientY-rect.top)*(DH/rect.height);
+  
+  if(gameState==='playing'){
+    if(mouse.locked){
+      // Moderno: Mouse locked, move livremente
+      player.angle += e.movementX * 0.0025;
+    } else if(mouse.down){
+      // Fallback: Arrasta pra girar se o lock falhar
+      player.angle += e.movementX * 0.005;
+    }
+  }
+  
+  if(gameState==='paused'&&dragVol&&mouse.down){
+    const v=dragVol==='music'?'musicVolume':'sfxVolume';
+    const max=dragVol==='music'?.6:.8;
+    audioSettings[v]=Math.max(0,Math.min(max,(mouse.x-(DW/2-100))/200*max));
+    if(audioSettings[v]>0){
+      if(dragVol==='music')audioSettings.musicMuted=false;
+      else audioSettings.sfxMuted=false;
+    }
+    applyAudioSettings();
+  }
+});
+
 document.addEventListener('mouseleave',()=>{lastClientX=-1;});
-cv.addEventListener('mousedown',e=>{if(gameState==='paused'){const rect=cv.getBoundingClientRect();const mx=(e.clientX-rect.left)*(DW/rect.width);const my=(e.clientY-rect.top)*(DH/rect.height);for(const btn of pauseButtons){if(mx>=btn.x&&mx<=btn.x+btn.w&&my>=btn.y&&my<=btn.y+btn.h){if(btn.isVol){dragVol=btn.isVol;}break;}}}else if(gameState==='playing'){if(e.button===0)mouse.down=true;}});
+
+cv.addEventListener('mousedown',e=>{
+  if(gameState==='paused'){
+    const rect=cv.getBoundingClientRect();const mx=(e.clientX-rect.left)*(DW/rect.width);const my=(e.clientY-rect.top)*(DH/rect.height);
+    for(const btn of pauseButtons){if(mx>=btn.x&&mx<=btn.x+btn.w&&my>=btn.y&&my<=btn.y+btn.h){if(btn.isVol)dragVol=btn.isVol;break;}}
+  } else if(gameState==='playing'){
+    if(e.button===0)mouse.down=true;
+  }
+});
+
 window.addEventListener('mouseup',e=>{if(e.button===0)mouse.down=false;dragVol=null;});
 
 function startGame(){gameState='playing';killCount=0;loadLevel(0);}
