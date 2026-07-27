@@ -146,9 +146,9 @@ function drawWeaponView(cx,w,h,weapon,fireAnim,moveBob){
 }
 
 const maps=[
-["########################","#P........#.............#","#.......L.#......L......#","#.........#.............#","#....##.D.#....##.T.....#","#....##.G.#....##.......#","#.........#.............#","#.........+.............#","#....L....#....S........#","#.........#.............#","###.###...#...###.###...#","#....X....#......T......#","#...L..G..H.....L.......#","#...........2...........#","#.......................#","###.###...#...###.###...#","#.........#.............#","#....S....#....L........#","#.........#.............#","#....##...#....##..E....#","#....##.T.#....##.G.....#","#.........#.............#","#......L..#..L..........#","########################"],
-["########################","#P.....#.......#.......#","#......#...L...#...J...#","#......#.......#.......#","#......+.......+.......#","#......#..T.D..#.......#","########.######.########","#...............S.......#","#..L..G.##......##..L..#","#.......##..X...##.....#","#.......+..............#","#.......##......##..G..#","#..J....##..3...##..L..#","#...............H......#","########.######.########","#......#.......#.......#","#......#...J...#...L...#","#......#.......#.......#","#......+.......+.......#","#......#...T...#.......#","#......#..G....#...E...#","########################"],
-["########################","#......................#","#..##............##....#","#......................#","#.........T........T...#","#..........B...........#","#.........G............#","#.........X............#","#..##............##....#","#......................#","#..........P...........#","#.........G............#","#..H..........H........#","#......................#","#..##............##....#","#......................#","########################"]
+["########################","#P........#.............#","#.......L.#......L......#","#.........#.............#","#....##.D.#....##.T.....#","#....##...#....##.......#","#.........#.............#","#.........+.............#","#....L....#....S........#","#.........#.............#","###.###...#...###.###...#","#....X....#......T......#","#...L..G..H.....L.......#","#...........2...........#","#.......................#","###.###...#...###.###...#","#.........#.............#","#....S....#....L........#","#.........#.............#","#....##...#....##..E....#","#....##.T.#....##.......#","#.........#.............#","#......L..#..L..........#","########################"],
+["########################","#P.....#.......#.......#","#......#...L...#...J...#","#......#.......#.......#","#......+.......+.......#","#......#..T.D..#.......#","########.######.########","#...............S.......#","#..L....##......##..L..#","#.......##..X...##.....#","#.......+..............#","#.......##......##.....#","#..J....##..3...##..L..#","#...............H......#","########.######.########","#......#.......#.......#","#......#...J...#...L...#","#......#.......#.......#","#......+.......+.......#","#......#...T...#.......#","#......#..G....#...E...#","########################"],
+["########################","#......................#","#..##............##....#","#......................#","#.........T........T...#","#..........B...........#","#......................#","#.........X............#","#..##............##....#","#......................#","#..........P...........#","#.........G............#","#..H..........H........#","#......................#","#..##............##....#","#......................#","########################"]
 ];
 const LEVEL_NAMES=["DESIERTO ESCARLATA","TEMPLO DE LA SELVA","COVIL DO CALANGO REI"];
 const LEVEL_COLORS=[{wall:1,fog:[140,60,25],floor:[60,35,20],ceil:[25,12,8]},{wall:2,fog:[30,60,25],floor:[40,50,25],ceil:[15,25,12]},{wall:3,fog:[80,20,15],floor:[45,18,15],ceil:[20,8,6]}];
@@ -163,7 +163,7 @@ let damageDirections=[];
 let pauseButtons=[];
 
 function loadLevel(idx){currentLevel=idx;const m=maps[idx];mapW=m[0].length;mapH=m.length;map=[];enemies=[];items=[];projectiles=[];particles=[];decals=[];tracers=[];explosions=[];damageDirections=[];doors=[];bossActive=false;torches=[];easterEggs=[];for(let y=0;y<mapH;y++){const row=[];for(let x=0;x<mapW;x++){const c=m[y][x];let tile=0;switch(c){case'#':tile=LEVEL_COLORS[idx].wall;break;case'+':tile=4;doors.push({x,y,open:0});break;case'E':tile=0;items.push({x:x+.5,y:y+.5,type:'exit'});break;case'P':player.x=x+.5;player.y=y+.5;tile=0;break;case'L':enemies.push(makeEnemy('lizard',x+.5,y+.5));tile=0;break;case'S':enemies.push(makeEnemy('snake',x+.5,y+.5));tile=0;break;case'J':enemies.push(makeEnemy('jaguar',x+.5,y+.5));tile=0;break;case'B':enemies.push(makeEnemy('boss',x+.5,y+.5));tile=0;break;case'2':items.push({x:x+.5,y:y+.5,type:'shotgun'});tile=0;break;case'3':items.push({x:x+.5,y:y+.5,type:'mg'});tile=0;break;case'H':items.push({x:x+.5,y:y+.5,type:'health'});tile=0;break;case'T':tile=0;torches.push({x:x+.5,y:y+.5,anim:Math.random()*100});break;case'X':tile=0;easterEggs.push({x:x+.5,y:y+.5,type:'easter_egg'});break;case'D':tile=0;items.push({x:x+.5,y:y+.5,type:'decatesto'});break;case'G':tile=0;items.push({x:x+.5,y:y+.5,type:'grenade'});break;}row.push(tile);}map.push(row);}if(idx===0){player.weapons={pistol:true,shotgun:false,mg:false};player.ammo={pistol:Infinity,shotgun:0,mg:0};player.currentWeapon='pistol';player.hp=100;player.decatestoTimer=0;player.grenades=0;}if(idx===2){bossActive=true;startMusic('boss');}else startMusic('level');}
-function makeEnemy(type,x,y){const base={x,y,angle:0,state:'idle',animFrame:Math.random()*100|0,hitFlash:0,attackTimer:2+Math.random()*2,dead:false,deathTimer:0,strafeDir:1,strafeTimer:0,retreatTimer:0};switch(type){case'lizard':return{...base,type,hp:35,maxHp:35,speed:1.4,damage:10,attackRange:1.6,score:100,shootRange:8,shootTimer:1+Math.random()};case'snake':return{...base,type,hp:18,maxHp:18,speed:2.8,damage:6,attackRange:1.3,score:75,shootRange:6,shootTimer:1.5+Math.random()};case'jaguar':return{...base,type,hp:70,maxHp:70,speed:2.0,damage:18,attackRange:2.0,score:200};case'boss':return{...base,type,hp:600,maxHp:600,speed:.4,damage:22,attackRange:3.5,score:5000,phase:1,attackType:null,telegraph:0,summonTimer:0};}}
+function makeEnemy(type,x,y){const base={x,y,angle:0,state:'idle',animFrame:Math.random()*100|0,hitFlash:0,attackTimer:2+Math.random()*2,dead:false,deathTimer:0,strafeDir:1,strafeTimer:0,retreatTimer:0};switch(type){case'lizard':return{...base,type,hp:35,maxHp:35,speed:1.4,damage:10,attackRange:1.6,score:100,shootRange:8,shootTimer:1+Math.random()};case'snake':return{...base,type,hp:18,maxHp:18,speed:2.8,damage:6,attackRange:1.3,score:75,shootRange:6,shootTimer:1.5+Math.random()};case'jaguar':return{...base,type,hp:70,maxHp:70,speed:2.0,damage:18,attackRange:2.0,score:200};case'boss':return{...base,type,hp:600,maxHp:600,speed:.4,damage:22,attackRange:3.5,score:5000,phase:1,attackType:null,telegraph:0,summonTimer:8,summonCount:5};}}
 function getTile(x,y){if(x<0||x>=mapW||y<0||y>=mapH)return 1;return map[y][x];}
 function isWall(x,y){const tx=Math.floor(x),ty=Math.floor(y);if(tx<0||tx>=mapW||ty<0||ty>=mapH)return true;const t=map[ty][tx];if(t===4){const door=doors.find(d=>d.x===tx&&d.y===ty);if(door&&door.open>0.5)return false;}return t>0;}
 function hasLOS(x1,y1,x2,y2){const dx=x2-x1,dy=y2-y1;const dist=Math.sqrt(dx*dx+dy*dy);if(dist>MAX_DEPTH)return false;const steps=Math.ceil(dist*4);for(let i=1;i<steps;i++){const t=i/steps;if(isWall(x1+dx*t,y1+dy*t))return false;}return true;}
@@ -190,7 +190,6 @@ function renderSprites(){
     else if(sp.proj){
       if(sp.proj.isGrenade){
         size=Math.floor(size*.2);
-        // Desloca para cima baseado na altura Z e no tamanho do sprite
         drawStartY -= sp.proj.z * (size * 1.5);
       } 
       else {size=Math.floor(size*.15);}
@@ -245,7 +244,6 @@ function updatePlayer(dt){
   const firing=(touchCtrl.fireId!==-1)||(mouse.down&&player.fireCooldown<=0);
   if(firing&&player.fireCooldown<=0)fireWeapon();
   
-  // Input da Granada com Buffer
   if(grenadeQueued){
     if(player.grenades>0&&player.grenadeCooldown<=0){
       throwGrenade();
@@ -267,10 +265,10 @@ function throwGrenade(){
   const dx=Math.cos(player.angle),dy=Math.sin(player.angle);
   projectiles.push({
     x:player.x+dx*0.5, y:player.y+dy*0.5,
-    dx:dx*7, dy:dy*7, // Velocidade inicial
+    dx:dx*7, dy:dy*7,
     life:1.5, maxLife:1.5,
     type:'grenade', isGrenade:true,
-    z:0.3, dz:2.5, // Altura inicial e velocidade vertical
+    z:0.3, dz:2.5,
     bounceCd:0
   });
 }
@@ -319,8 +317,85 @@ function updateEnemies(dt){
   }
 }
 
-function updateBoss(boss,dt){const dx=player.x-boss.x,dy=player.y-boss.y;const dist=Math.sqrt(dx*dx+dy*dy);boss.phase=boss.hp>boss.maxHp*.66?1:boss.hp>boss.maxHp*.33?2:3;const phaseSpeed=[.5,0.8,1.2][boss.phase-1];const phaseAttackCD=[4.5,3.5,2.5][boss.phase-1];if(boss.telegraph>0){boss.telegraph-=dt;if(boss.telegraph<=0){executeBossAttack(boss);boss.attackTimer=phaseAttackCD;boss.attackType=null;}return;}boss.attackTimer-=dt;if(dist>3.5){const moveX=(dx/dist)*phaseSpeed*dt;const moveY=(dy/dist)*phaseSpeed*dt;const nx=boss.x+moveX;if(!isWall(nx+Math.sign(moveX)*0.3,boss.y))boss.x=nx;const ny=boss.y+moveY;if(!isWall(boss.x,ny+Math.sign(moveY)*0.3))boss.y=ny;}if(boss.attackTimer<=0&&dist<12){const attacks=boss.phase===1?['tongue','charge']:boss.phase===2?['tongue','charge','poison']:['tongue','charge','poison','summon'];boss.attackType=attacks[Math.floor(Math.random()*attacks.length)];boss.telegraph=1.6;sfx('bossroar');}if(boss.phase===3){boss.summonTimer-=dt;if(boss.summonTimer<=0){boss.summonTimer=10;for(let i=0;i<2;i++){const ang=Math.random()*Math.PI*2;const sx=boss.x+Math.cos(ang)*2.5,sy=boss.y+Math.sin(ang)*2.5;if(!isWall(sx,sy))enemies.push(makeEnemy('lizard',sx,sy));}}}}
-function executeBossAttack(boss){const dx=player.x-boss.x,dy=player.y-boss.y;const ang=Math.atan2(dy,dx);switch(boss.attackType){case'tongue':for(let i=0;i<3;i++)setTimeout(()=>{if(!boss.dead)projectiles.push({x:boss.x,y:boss.y,dx:Math.cos(ang)*4,dy:Math.sin(ang)*4,damage:18,type:'tongue',life:3});},i*150);break;case'poison':for(let i=-3;i<=3;i++){const a=ang+i*.2;projectiles.push({x:boss.x,y:boss.y,dx:Math.cos(a)*2.5,dy:Math.sin(a)*2.5,damage:12,type:'poison',life:4});}break;case'charge':const chargeDist=6;const tx=boss.x+Math.cos(ang)*chargeDist;const ty=boss.y+Math.sin(ang)*chargeDist;const steps=25;for(let i=0;i<steps;i++){const t=i/steps;const cx=boss.x+(tx-boss.x)*t;const cy=boss.y+(ty-boss.y)*t;setTimeout(()=>{if(!boss.dead&&gameState==='playing'){if(!isWall(cx,cy)){boss.x=cx;boss.y=cy;}spawnParticles(cx,cy,'#1a3a1a',3);if(Math.sqrt((cx-player.x)**2+(cy-player.y)**2)<1.2){if(player.decatestoTimer<=0){player.hp-=28;player.hurtFlash=1;screenShake=.7;sfx('hurt');const a2=Math.atan2(player.y-cy,player.x-cx);damageDirections.push({angle:a2+Math.PI,life:1});checkPlayerDeath();}}}},i*30);}break;case'summon':for(let i=0;i<3;i++){const a=Math.random()*Math.PI*2;const sx=boss.x+Math.cos(a)*2.5,sy=boss.y+Math.sin(a)*2.5;if(!isWall(sx,sy))enemies.push(makeEnemy('lizard',sx,sy));}spawnParticles(boss.x,boss.y,'#0a0',20);break;}}
+function updateBoss(boss,dt){
+  const dx=player.x-boss.x,dy=player.y-boss.y;const dist=Math.sqrt(dx*dx+dy*dy);
+  boss.phase=boss.hp>boss.maxHp*.66?1:boss.hp>boss.maxHp*.33?2:3;
+  const phaseSpeed=[.5,0.8,1.2][boss.phase-1];const phaseAttackCD=[4.5,3.5,2.5][boss.phase-1];
+  
+  if(boss.telegraph>0){boss.telegraph-=dt;if(boss.telegraph<=0){executeBossAttack(boss);boss.attackTimer=phaseAttackCD;boss.attackType=null;}return;}
+  
+  boss.attackTimer-=dt;
+  
+  // Forçar o Summon se o timer chegar a zero
+  boss.summonTimer-=dt;
+  if(boss.summonTimer<=0){
+    boss.attackType='summon';
+    boss.telegraph=1.6;
+    sfx('bossroar');
+    boss.summonTimer = 15; // Reseta o ciclo para 15s
+    return;
+  }
+
+  if(dist>3.5){
+    const moveX=(dx/dist)*phaseSpeed*dt;const moveY=(dy/dist)*phaseSpeed*dt;
+    const nx=boss.x+moveX;if(!isWall(nx+Math.sign(moveX)*0.3,boss.y))boss.x=nx;
+    const ny=boss.y+moveY;if(!isWall(boss.x,ny+Math.sign(moveY)*0.3))boss.y=ny;
+  }
+  
+  if(boss.attackTimer<=0&&dist<12){
+    const attacks = boss.phase===1 ? ['tongue','charge'] : boss.phase===2 ? ['tongue','charge','poison'] : ['tongue','charge','poison'];
+    boss.attackType=attacks[Math.floor(Math.random()*attacks.length)];
+    boss.telegraph=1.6;sfx('bossroar');
+  }
+}
+
+function executeBossAttack(boss){
+  const dx=player.x-boss.x,dy=player.y-boss.y;const ang=Math.atan2(dy,dx);
+  switch(boss.attackType){
+    case'tongue':for(let i=0;i<3;i++)setTimeout(()=>{if(!boss.dead)projectiles.push({x:boss.x,y:boss.y,dx:Math.cos(ang)*4,dy:Math.sin(ang)*4,damage:18,type:'tongue',life:3});},i*150);break;
+    case'poison':for(let i=-3;i<=3;i++){const a=ang+i*.2;projectiles.push({x:boss.x,y:boss.y,dx:Math.cos(a)*2.5,dy:Math.sin(a)*2.5,damage:12,type:'poison',life:4});}break;
+    case'charge':
+      const chargeDist=6;const tx=boss.x+Math.cos(ang)*chargeDist;const ty=boss.y+Math.sin(ang)*chargeDist;const steps=25;
+      for(let i=0;i<steps;i++){
+        const t=i/steps;const cx=boss.x+(tx-boss.x)*t;const cy=boss.y+(ty-boss.y)*t;
+        setTimeout(()=>{
+          if(!boss.dead&&gameState==='playing'){
+            if(!isWall(cx,cy)){boss.x=cx;boss.y=cy;}
+            spawnParticles(cx,cy,'#1a3a1a',3);
+            if(Math.sqrt((cx-player.x)**2+(cy-player.y)**2)<1.2){
+              if(player.decatestoTimer<=0){player.hp-=28;player.hurtFlash=1;screenShake=.7;sfx('hurt');const a2=Math.atan2(player.y-cy,player.x-cx);damageDirections.push({angle:a2+Math.PI,life:1});checkPlayerDeath();}
+            }
+          }
+        },i*30);
+      }
+      break;
+    case'summon':
+      let spawned = 0;
+      for(let i=0; i<boss.summonCount; i++){
+        for(let j=0; j<20; j++){
+          const a = Math.random() * Math.PI * 2;
+          const r = 1.5 + Math.random() * 2;
+          const sx = boss.x + Math.cos(a) * r;
+          const sy = boss.y + Math.sin(a) * r;
+          if(!isWall(sx, sy) && sx > 1 && sx < mapW-1 && sy > 1 && sy < mapH-1){
+            const minion = makeEnemy(Math.random() < 0.5 ? 'lizard' : 'snake', sx, sy);
+            minion.state = 'chase';
+            enemies.push(minion);
+            spawnParticles(sx, sy, '#0a0', 10);
+            spawned++;
+            break;
+          }
+        }
+      }
+      if (spawned > 0) {
+        // Aumenta o número de inimigos para a próxima invocação em 1.5x
+        boss.summonCount = Math.floor(boss.summonCount * 1.5);
+        spawnParticles(boss.x, boss.y, '#0a0', 30);
+        sfx('gib');
+      }
+      break;
+  }
+}
 
 function explodeGrenade(x,y){
   sfx('explosion');sfx('gib');
@@ -349,18 +424,18 @@ function updateProjectiles(dt){
   for(let i=projectiles.length-1;i>=0;i--){
     const p=projectiles[i];p.life-=dt;
     if(p.isGrenade){
-      p.dx*=0.97; p.dy*=0.97; // Atrito do ar
+      p.dx*=0.97; p.dy*=0.97;
       const nx=p.x+p.dx*dt;const ny=p.y+p.dy*dt;
       if(isWall(nx,p.y)){p.dx*=-0.5; if(p.bounceCd<=0){sfx('grenade_bounce');p.bounceCd=0.1;}}else p.x=nx;
       if(isWall(p.x,ny)){p.dy*=-0.5; if(p.bounceCd<=0){sfx('grenade_bounce');p.bounceCd=0.1;}}else p.y=ny;
       if(p.bounceCd>0) p.bounceCd-=dt;
       
       p.z+=p.dz*dt;
-      p.dz-=5.0*dt; // Gravidade
+      p.dz-=5.0*dt;
       if(p.z<0.05){
         p.z=0.05;
-        p.dz*=-0.4; // Quica no chão
-        if(Math.abs(p.dz)<0.5)p.dz=0; // Para de quicar
+        p.dz*=-0.4;
+        if(Math.abs(p.dz)<0.5)p.dz=0;
       }
       
       if(p.life<=0){explodeGrenade(p.x,p.y);projectiles.splice(i,1);continue;}
@@ -475,7 +550,7 @@ cv.addEventListener('mousedown',e=>{
     for(const btn of pauseButtons){if(mx>=btn.x&&mx<=btn.x+btn.w&&my>=btn.y&&my<=btn.y+btn.h){if(btn.isVol)dragVol=btn.isVol;break;}}
   } else if(gameState==='playing'){
     if(e.button===0)mouse.down=true;
-    if(e.button===2)grenadeQueued=true; // Right click throws grenade
+    if(e.button===2)grenadeQueued=true;
   }
 });
 
